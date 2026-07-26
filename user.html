@@ -145,7 +145,7 @@
                         if (!existingUser.empty) {
                             // لو الرقم موجود، يدخل فوراً لصفحة tony.html بالـ ID ويجيب اسمه القديم تلقائياً
                             const userId = existingUser.docs[0].id;
-                            window.location.href = `user/tony.html?id=${userId}`;
+                            window.location.href = `./user/tony.html?id=${userId}`;
                         } else {
                             // لو الرقم مش موجود، يظهر خانة الاسم عشان يسجله لأول مرة فقط
                             formTitle.textContent = "تسجيل بيانات جديدة";
@@ -164,7 +164,7 @@
                                 createdAt: new Date()
                             });
                             // يدخل لصفحة tony.html ويعرض اسمه الجديد
-                            window.location.href = `user/tony.html?id=${docRef.id}`;
+                            window.location.href = `./user/tony.html?id=${docRef.id}`;
                         } else {
                             alert("يرجى كتابة الاسم بشكل صحيح!");
                         }
