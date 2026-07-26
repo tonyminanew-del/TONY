@@ -81,6 +81,10 @@
         button:hover {
             background-color: #2980b9;
         }
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
         .btn-booking {
             background-color: #27ae60;
         }
@@ -93,11 +97,43 @@
         .btn-result:hover {
             background-color: #d35400;
         }
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        .success-message {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #2980b9;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
+        <div class="error-message" id="errorMessage"></div>
+        <div class="success-message" id="successMessage"></div>
+
         <!-- المكان الذي سيظهر فيه الاسم الحقيقي -->
         <h2 id="welcomeUser">جاري تحميل الاسم...</h2>
 
@@ -131,10 +167,43 @@
             measurementId: "G-YRH69L594N"
         };
 
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
+        let db = null;
+        let currentUserId = null;
+
+        // تهيئة Firebase
+        function initializeFirebase() {
+            try {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                db = firebase.firestore();
+                return true;
+            } catch (error) {
+                console.error("خطأ في تهيئة Firebase:", error);
+                showError("خطأ في الاتصال بقاعدة البيانات");
+                return false;
+            }
         }
-        const db = firebase.firestore();
+
+        // عرض رسالة خطأ
+        function showError(message) {
+            const errorDiv = document.getElementById("errorMessage");
+            errorDiv.textContent = message;
+            errorDiv.style.display = "block";
+            setTimeout(() => {
+                errorDiv.style.display = "none";
+            }, 5000);
+        }
+
+        // عرض رسالة نجاح
+        function showSuccess(message) {
+            const successDiv = document.getElementById("successMessage");
+            successDiv.textContent = message;
+            successDiv.style.display = "block";
+            setTimeout(() => {
+                successDiv.style.display = "none";
+            }, 3000);
+        }
 
         // تحديث الساعة بشكل حي
         function updateClock() {
@@ -153,50 +222,66 @@
                 clockElement.textContent = `⏰ الوقت: ${formattedHours}:${minutes}:${seconds} ${ampm}`;
             }
         }
+
+        // بدء تحديث الساعة
         setInterval(updateClock, 1000);
         updateClock();
 
+        // تحميل البيانات عند فتح الصفحة
         document.addEventListener("DOMContentLoaded", async () => {
+            // تهيئة Firebase أولاً
+            if (!initializeFirebase()) {
+                return;
+            }
+
             const welcomeElement = document.getElementById("welcomeUser");
             const currentDateText = document.getElementById("currentDateText");
             const nextBookingText = document.getElementById("nextBookingText");
 
+            // تعيين التاريخ
             const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
             const todayFormatted = new Date().toLocaleDateString('ar-EG', options);
             if (currentDateText) currentDateText.textContent = todayFormatted;
 
+            // الحصول على ID من الرابط
             const urlParams = new URLSearchParams(window.location.search);
-            let currentUserId = urlParams.get("id");
+            currentUserId = urlParams.get("id");
 
             try {
                 let userData = null;
 
                 // 1. محاولة جلب المستخدم عبر الـ id في الرابط
                 if (currentUserId) {
-                    const userDoc = await db.collection("users").doc(currentUserId).get();
-                    if (userDoc.exists) {
-                        userData = userDoc.data();
+                    try {
+                        const userDoc = await db.collection("users").doc(currentUserId).get();
+                        if (userDoc.exists) {
+                            userData = userDoc.data();
+                        }
+                    } catch (fetchError) {
+                        console.warn("لم يتم العثور على المستخدم بـ ID:", currentUserId);
                     }
                 }
 
-                // 2. إذا لم يوجد id في الرابط أو لم يتم العثور عليه، نجلب أحدث مستخدم مسجل
+                // 2. إذا لم يوجد id أو لم يتم العثور عليه، نجلب أحدث مستخدم مسجل
                 if (!userData) {
-                    const snapshot = await db.collection("users").limit(1).get();
-                    if (!snapshot.empty) {
-                        currentUserId = snapshot.docs[0].id;
-                        userData = snapshot.docs[0].data();
+                    try {
+                        const snapshot = await db.collection("users").limit(1).get();
+                        if (!snapshot.empty) {
+                            currentUserId = snapshot.docs[0].id;
+                            userData = snapshot.docs[0].data();
+                        }
+                    } catch (fetchError) {
+                        console.warn("لم يتم العثور على أي مستخدمين");
                     }
                 }
 
-                // 3. طباعة الاسم بشكل دقيق وبحث شامل في كل الاحتمالات الممكنة للحقول
+                // 3. عرض الترحيب
                 if (userData) {
-                    // فحص جميع الحقول المحتملة للاسم في قاعدة البيانات
                     const realName = userData.name || userData.fullName || userData.userName || userData.username || userData.adminName || userData.firstName;
                     
                     if (realName) {
                         welcomeElement.textContent = `أهلاً يا ${realName}`;
                     } else {
-                        // إذا كانت البيانات موجودة لكن حقل الاسم فارغ، نطبع أول مفتاح أو قيمة نصية نجدها
                         welcomeElement.textContent = `أهلاً بك`;
                     }
                 } else {
@@ -205,42 +290,64 @@
 
                 // 4. جلب الحجز الخاص بالمستخدم
                 if (currentUserId) {
-                    const bookingSnapshot = await db.collection("bookings")
-                        .where("userId", "==", currentUserId)
-                        .get();
+                    try {
+                        const bookingSnapshot = await db.collection("bookings")
+                            .where("userId", "==", currentUserId)
+                            .get();
 
-                    if (!bookingSnapshot.empty) {
-                        let bookings = [];
-                        bookingSnapshot.forEach(doc => { bookings.push(doc.data()); });
-                        const bookingData = bookings[bookings.length - 1]; // أحدث حجز
+                        if (!bookingSnapshot.empty) {
+                            let bookings = [];
+                            bookingSnapshot.forEach(doc => { bookings.push(doc.data()); });
+                            const bookingData = bookings[bookings.length - 1]; // أحدث حجز
 
-                        const bDate = bookingData.date || "غير محدد";
-                        const bTime = bookingData.time || "غير محدد";
-                        const bStatus = bookingData.status || "قيد الانتظار";
-                        
-                        nextBookingText.innerHTML = `${bDate} (${bTime}) - <span style="color: ${bStatus === 'مقبول' ? '#27ae60' : '#e67e22'}">${bStatus}</span>`;
-                    } else {
-                        nextBookingText.textContent = "لا يوجد حجوزات مسجلة";
+                            const bDate = bookingData.date || "غير محدد";
+                            const bTime = bookingData.time || "غير محدد";
+                            const bStatus = bookingData.status || "قيد الانتظار";
+                            
+                            nextBookingText.innerHTML = `${bDate} (${bTime}) - <span style="color: ${bStatus === 'مقبول' ? '#27ae60' : '#e67e22'}">${bStatus}</span>`;
+                        } else {
+                            nextBookingText.textContent = "لا يوجد حجوزات مسجلة";
+                        }
+                    } catch (bookingError) {
+                        console.warn("خطأ في جلب الحجوزات:", bookingError);
+                        nextBookingText.textContent = "تعذر جلب الحجوزات";
                     }
                 }
 
             } catch (error) {
-                console.error("خطأ في جلب البيانات: ", error);
+                console.error("خطأ عام:", error);
                 welcomeElement.textContent = "أهلاً بك";
-                nextBookingText.textContent = "تعذر جلب الحجز";
+                nextBookingText.textContent = "تعذر جلب البيانات";
+                showError("حدث خطأ في تحميل البيانات");
             }
 
-            // تفعيل الأزرار مع تمرير الـ id
-            document.getElementById("profileBtn").addEventListener("click", () => {
-                window.location.href = currentUserId ? `profile.html?id=${currentUserId}` : "profile.html";
+            // تفعيل الأزرار
+            const profileBtn = document.getElementById("profileBtn");
+            const bookingBtn = document.getElementById("bookingBtn");
+            const resultBtn = document.getElementById("resultBtn");
+
+            profileBtn.addEventListener("click", () => {
+                if (currentUserId) {
+                    window.location.href = `profile.html?id=${currentUserId}`;
+                } else {
+                    window.location.href = "profile.html";
+                }
             });
 
-            document.getElementById("bookingBtn").addEventListener("click", () => {
-                window.location.href = currentUserId ? `حجز .html?id=${currentUserId}` : "حجز .html";
+            bookingBtn.addEventListener("click", () => {
+                if (currentUserId) {
+                    window.location.href = `حجز .html?id=${currentUserId}`;
+                } else {
+                    window.location.href = "حجز .html";
+                }
             });
 
-            document.getElementById("resultBtn").addEventListener("click", () => {
-                window.location.href = currentUserId ? `result.html?id=${currentUserId}` : "result.html";
+            resultBtn.addEventListener("click", () => {
+                if (currentUserId) {
+                    window.location.href = `result.html?id=${currentUserId}`;
+                } else {
+                    window.location.href = "result.html";
+                }
             });
         });
     </script>
