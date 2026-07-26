@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>admin page</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        .live-clock-box {
+            background: white;
+            color: #333;
+            padding: 15px 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+        }
+        .live-clock-box h3 {
+            margin: 0 0 8px 0;
+            color: #2980b9;
+            font-size: 18px;
+        }
+        .live-clock-box p {
+            margin: 5px 0;
+            font-size: 15px;
+        }
+    </style>
+</head>
+<body>
+    <!-- جملة الترحيب -->
+    <p class="title" id="welcomeText">جاري التحميل...</p>
+
+    <!-- صندوق الساعة الحية والحجز الحالي -->
+    <div class="live-clock-box">
+        <h3>الوقت الحالي والحجز القائم</h3>
+        <p id="liveClock">--:--:-- --</p>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 10px 0;">
+        <p id="currentBookingStatus">جاري فحص الحجوزات الحالية...</p>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 400px; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.1);">
+        <form action="الاداره.html" method="get">
+            <button type="submit" style="width: 100%;">إدارة الحجوزات</button>
+        </form>
+        
+        <form action="time.html" method="get">
+            <button type="submit" style="width: 100%; background-color: #2980b9;">مواعيد حجوزات</button>
+        </form>
+        
+        <form action="profile.html" method="get">
+            <button type="submit" style="width: 100%; background-color: #8e44ad;">profile</button>
+        </form>
+    </div>
+
+    <!-- استدعاء مكتبات فايربيس -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBGM0xBeu0wc2JV_4hgymDMDi1jlltf8SI",
+            authDomain: "marygrgs.firebaseapp.com",
+            projectId: "marygrgs",
+            storageBucket: "marygrgs.firebasestorage.app",
+            messagingSenderId: "866893606556",
+            appId: "1:866893606556:web:d2b7bab1c8dcd8fd038759",
+            measurementId: "G-YRH69L594N"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            const welcomeText = document.getElementById("welcomeText");
+            const liveClockElement = document.getElementById("liveClock");
+            const currentBookingElement = document.getElementById("currentBookingStatus");
+
+            // 1. تشغيل الساعة الحية (ساعات، دقائق، ثواني مع AM/PM)
+            function updateClock() {
+                const now = new Date();
+                let hours = now.getHours();
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                
+                hours = hours % 12;
+                hours = hours ? hours : 12; // الساعة 0 تصبح 12
+                const formattedHours = String(hours).padStart(2, '0');
+
+                liveClockElement.textContent = `${formattedHours}:${minutes}:${seconds} ${ampm}`;
+            }
+            setInterval(updateClock, 1000);
+            updateClock();
+
+            // 2. جلب الترحيب بالأدمن من قاعدة البيانات
+            try {
+                const snapshot = await db.collection("admins")
+                    .orderBy("createdAt", "desc")
+                    .limit(1)
+                    .get();
+
+                if (!snapshot.empty) {
+                    const data = snapshot.docs[0].data();
+                    welcomeText.textContent = `أهلاً يا ${data.title || ""} ${data.name || ""}`;
+                } else {
+                    welcomeText.textContent = "أهلاً يا مشرفنا العزيز";
+                }
+            } catch (error) {
+                console.error("خطأ في جلب بيانات الأدمن:", error);
+                welcomeText.textContent = "أهلاً يا مشرفنا العزيز";
+            }
+
+            // 3. التحقق من الحجز الموجود حالياً في قاعدة البيانات
+            try {
+                const reservationsSnapshot = await db.collection("reservations").get();
+                let activeBookingFound = false;
+
+                reservationsSnapshot.forEach(doc => {
+                    const resData = doc.data();
+                    // لو الحجز مقبول، يمكنك مقارنة الوقت هنا أو عرض الحجوزات النشطة اليوم
+                    if (resData.status === "مقبول") {
+                        // كمثال: نعرض تفاصيل الحجز الحالي المسجل
+                        // يمكنك مطابقة الوقت الحالي مع نطاق الساعات لو حبيت
+                        activeBookingFound = true;
+                        currentBookingElement.innerHTML = `الحجز الحالي: <b style="color: #c0392b;">${resData.time || resData.details}</b><br>بواسطة: <b>${resData.name}</b> (${resData.phone})`;
+                    }
+                });
+
+                if (!activeBookingFound) {
+                    currentBookingElement.innerHTML = "<span style='color: #27ae60;'>لا توجد حجوزات نشطة في هذه اللحظة.</span>";
+                }
+
+            } catch (error) {
+                console.error("خطأ في جلب حالة الحجز الحالي:", error);
+                currentBookingElement.textContent = "تعذر جلب حالة الحجز الحالي.";
+            }
+        });
+    </script>
+</body>
+</html>

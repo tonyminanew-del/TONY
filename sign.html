@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تسجيل دخول الأدمن</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <p class="title">تسجيل دخول لوحة التحكم </p>
+
+    <form id="adminForm">
+        <label for="adminName">الاسم:</label>
+        <input type="text" id="adminName" required placeholder="اكتب اسمك...">
+
+        <label for="adminPhone">رقم الهاتف:</label>
+        <input type="tel" id="adminPhone" required placeholder="اكتب رقم هاتفك...">
+
+        <label for="adminTitle">اللقب / الوصف:</label>
+        <select id="adminTitle">
+            <option value="اخ">اخ</option>
+            <option value="تاسوني">تاسوني</option>
+            <option value="ابونا">ابونا</option>
+        </select>
+
+        <button type="submit">دخول</button>
+    </form>
+
+    <!-- استدعاء مكتبات فايربيس -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBGM0xBeu0wc2JV_4hgymDMDi1jlltf8SI",
+            authDomain: "marygrgs.firebaseapp.com",
+            projectId: "marygrgs",
+            storageBucket: "marygrgs.firebasestorage.app",
+            messagingSenderId: "866893606556",
+            appId: "1:866893606556:web:d2b7bab1c8dcd8fd038759",
+            measurementId: "G-YRH69L594N"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const adminForm = document.getElementById("adminForm");
+            const nameInput = document.getElementById("adminName");
+            const phoneInput = document.getElementById("adminPhone");
+            const titleSelect = document.getElementById("adminTitle");
+
+            if (!adminForm) return;
+
+            adminForm.addEventListener("submit", async (event) => {
+                event.preventDefault();
+
+                const name = nameInput.value.trim();
+                const phone = phoneInput.value.trim();
+                const title = titleSelect.value;
+
+                if (name !== "" && phone !== "") {
+                    try {
+                        // حفظ البيانات مباشرة في مجموعة admins في فايربيس
+                        await db.collection("admins").add({
+                            name: name,
+                            phone: phone,
+                            title: title,
+                            createdAt: new Date()
+                        });
+
+                        // الانتقال المباشر للوحة التحكم
+                        window.location.href = "admin.html";
+                        
+                    } catch (error) {
+                        console.error("خطأ أثناء حفظ البيانات: ", error);
+                        alert("حدث خطأ في الاتصال بقاعدة البيانات، يرجى المحاولة مرة أخرى.");
+                    }
+                } else {
+                    alert("يرجى إدخال الاسم ورقم الهاتف بشكل صحيح!");
+                }
+            });
+        });
+    </script>
+</body>
+</html>

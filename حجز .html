@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>حجز الملعب</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #2c3e50;
+            color: #fff;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 450px;
+            background: white;
+            color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-sizing: border-box;
+        }
+        .title {
+            font-size: 20px;
+            font-weight: bold;
+            text-align: center;
+            color: #2c3e50;
+            margin: 0 0 10px 0;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        label {
+            font-weight: bold;
+            font-size: 14px;
+            color: #333;
+            text-align: right;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+            outline: none;
+        }
+        input:focus, select:focus {
+            border-color: #27ae60;
+        }
+        button {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #219653;
+        }
+        .back-btn {
+            background-color: #7f8c8d;
+            margin-top: 5px;
+        }
+        .back-btn:hover {
+            background-color: #616a6b;
+        }
+        #welcomeUser {
+            text-align: center;
+            color: #e67e22;
+            font-size: 15px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <p class="title">حجز موعد للملعب</p>
+        <p id="welcomeUser">جاري التحقق من قاعدة البيانات...</p>
+        
+        <form id="bookingForm">
+            <div class="input-group">
+                <label for="bookingDate">تاريخ الحجز:</label>
+                <input type="date" id="bookingDate" required>
+            </div>
+
+            <div class="input-group">
+                <label for="bookingTime">وقت الحجز (الساعة):</label>
+                <select id="bookingTime" required>
+                    <option value="">اختر التاريخ أولاً لعرض المواعيد المتاحة</option>
+                </select>
+            </div>
+
+            <button type="submit" style="margin-top: 10px;">تأكيد وحجز الموعد</button>
+            <button type="button" id="backBtn" class="back-btn">العودة للرئيسية</button>
+        </form>
+    </div>
+
+    <!-- استدعاء مكتبات فايربيس -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBGM0xBeu0wc2JV_4hgymDMDi1jlltf8SI",
+            authDomain: "marygrgs.firebaseapp.com",
+            projectId: "marygrgs",
+            storageBucket: "marygrgs.firebasestorage.app",
+            messagingSenderId: "866893606556",
+            appId: "1:866893606556:web:d2b7bab1c8dcd8fd038759",
+            measurementId: "G-YRH69L594N"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // الساعات الكاملة من 3 ظهراً إلى 12 منتصف الليل
+        const allTimeSlots = [
+            "03:00 PM - 04:00 PM",
+            "04:00 PM - 05:00 PM",
+            "05:00 PM - 06:00 PM",
+            "06:00 PM - 07:00 PM",
+            "07:00 PM - 08:00 PM",
+            "08:00 PM - 09:00 PM",
+            "09:00 PM - 10:00 PM",
+            "10:00 PM - 11:00 PM",
+            "11:00 PM - 12:00 AM"
+        ];
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            let userId = urlParams.get("id");
+
+            try {
+                if (!userId) {
+                    const latestUser = await db.collection("users")
+                        .orderBy("createdAt", "desc")
+                        .limit(1)
+                        .get();
+
+                    if (!latestUser.empty) {
+                        userId = latestUser.docs[0].id;
+                    }
+                }
+
+                if (!userId) {
+                    alert("عفواً، لا يوجد أي مستخدم مسجل في القاعدة.");
+                    window.location.href = "user.html";
+                    return;
+                }
+
+                const userDoc = await db.collection("users").doc(userId).get();
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    document.getElementById("welcomeUser").textContent = `أهلاً بك يا ${userData.name || userData.userName || 'صديقي'}`;
+                } else {
+                    document.getElementById("welcomeUser").textContent = "أهلاً بك يا صديقي";
+                }
+
+                const dateInput = document.getElementById("bookingDate");
+                const timeSelect = document.getElementById("bookingTime");
+
+                // تحديث الساعات المتاحة بناءً على التاريخ الذي يختاره المستخدم
+                dateInput.addEventListener("change", async () => {
+                    const selectedDate = dateInput.value;
+                    timeSelect.innerHTML = '<option value="">جاري تحميل المواعيد المتاحة...</option>';
+
+                    // جلب الحجوزات المسجلة مسبقاً في هذا التاريخ
+                    const snapshot = await db.collection("bookings").where("date", "==", selectedDate).get();
+                    let bookedSlots = [];
+                    snapshot.forEach(doc => {
+                        bookedSlots.push(doc.data().time);
+                    });
+
+                    timeSelect.innerHTML = '<option value="">اختر الوقت المناسب</option>';
+                    
+                    // تصفية الساعات وإظهار الفارغة فقط
+                    allTimeSlots.forEach(slot => {
+                        if (!bookedSlots.includes(slot)) {
+                            const option = document.createElement("option");
+                            option.value = slot;
+                            option.textContent = slot;
+                            timeSelect.appendChild(option);
+                        }
+                    });
+
+                    if (timeSelect.options.length <= 1) {
+                        timeSelect.innerHTML = '<option value="">عفواً، جميع المواعيد محجوزة في هذا اليوم</option>';
+                    }
+                });
+
+                const bookingForm = document.getElementById("bookingForm");
+                
+                bookingForm.addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    const date = dateInput.value;
+                    const time = timeSelect.value;
+
+                    if (!date || !time) {
+                        alert("يرجى اختيار التاريخ والوقت بشكل صحيح!");
+                        return;
+                    }
+
+                    // التحقق المزدوج اللحظي لمنع حجز نفس الموعد إذا سبقه شخص آخر قبل ثوانٍ
+                    const checkSnapshot = await db.collection("bookings")
+                        .where("date", "==", date)
+                        .where("time", "==", time)
+                        .get();
+
+                    if (!checkSnapshot.empty) {
+                        alert("عفواً، المعاد اتحجز خلاص من مستخدم آخر! اختر موعداً آخر.");
+                        location.reload();
+                        return;
+                    }
+
+                    // حفظ الحجز في قاعدة البيانات
+                    await db.collection("bookings").add({
+                        userId: userId,
+                        date: date,
+                        time: time,
+                        createdAt: new Date()
+                    });
+
+                    alert("تم حجز الملعب بنجاح !");
+                    window.location.href = `tony.html?id=${userId}`;
+                });
+
+                document.getElementById("backBtn").addEventListener("click", () => {
+                    window.location.href = `tony.html?id=${userId}`;
+                });
+
+            } catch (error) {
+                console.error("خطأ في الاتصال بقاعدة البيانات:", error);
+                document.getElementById("welcomeUser").textContent = "حدث خطأ في جلب بيانات المستخدم";
+            }
+        });
+    </script>
+</body>
+</html>

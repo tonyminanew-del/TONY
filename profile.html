@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Profile</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <p class="title">الملف الشخصي للمشرف</p>
+
+    <div style="display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 400px; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.1);">
+        
+        <div style="font-size: 16px; color: #333; line-height: 1.8;">
+            <p><strong>اللقب:</strong> <span id="profileTitle">جاري التحميل...</span></p>
+            <p><strong>الاسم:</strong> <span id="profileName">جاري التحميل...</span></p>
+            <p><strong>رقم الهاتف:</strong> <span id="profilePhone">جاري التحميل...</span></p>
+        </div>
+
+        <!-- زر تسجيل الخروج -->
+        <button id="logoutBtn" style="background-color: #e74c3c; width: 100%; margin-top: 10px;">تسجيل خروج</button>
+        
+        <!-- زر العودة لوحة التحكم -->
+        <button onclick="window.location.href='admin.html'" style="background-color: #7f8c8d; width: 100%;">العودة لوحة التحكم</button>
+    </div>
+
+    <!-- استدعاء مكتبات فايربيس -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBGM0xBeu0wc2JV_4hgymDMDi1jlltf8SI",
+            authDomain: "marygrgs.firebaseapp.com",
+            projectId: "marygrgs",
+            storageBucket: "marygrgs.firebasestorage.app",
+            messagingSenderId: "866893606556",
+            appId: "1:866893606556:web:d2b7bab1c8dcd8fd038759",
+            measurementId: "G-YRH69L594N"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            try {
+                // جلب أحدث بيانات مسجلة في قاعدة البيانات لعرضها في البروفايل
+                const snapshot = await db.collection("admins")
+                    .orderBy("createdAt", "desc")
+                    .limit(1)
+                    .get();
+
+                if (!snapshot.empty) {
+                    const data = snapshot.docs[0].data();
+                    document.getElementById("profileTitle").textContent = data.title || "-";
+                    document.getElementById("profileName").textContent = data.name || "-";
+                    document.getElementById("profilePhone").textContent = data.phone || "-";
+                }
+            } catch (error) {
+                console.error("خطأ في جلب بيانات البروفايل:", error);
+            }
+
+            // زر تسجيل الخروج (يعيدك لصفحة index.html الرئيسية)
+            const logoutBtn = document.getElementById("logoutBtn");
+            logoutBtn.addEventListener("click", () => {
+                alert("تم تسجيل الخروج بنجاح.");
+                window.location.href = "../index.html";
+            });
+        });
+    </script>
+</body>
+</html>

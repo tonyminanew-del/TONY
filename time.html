@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مواعيد الحجوزات اليومية</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #2c3e50;
+            color: #fff;
+            padding: 20px;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin-top: 20px;
+        }
+        .date-picker-box {
+            background: white;
+            color: #333;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .date-picker-box label {
+            font-weight: bold;
+        }
+        .date-picker-box input {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            color: #333;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #2980b9;
+            color: white;
+            font-size: 16px;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        .status-booked {
+            color: #c0392b;
+            font-weight: bold;
+        }
+        .status-available {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        .back-btn {
+            background-color: #7f8c8d;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+    <button class="back-btn" onclick="window.location.href='admin.html'">العودة لوحة التحكم</button>
+
+    <p class="title" style="font-size: 24px; font-weight: bold; margin-bottom: 15px;">جدول مواعيد الحجوزات اليومية</p>
+
+    <!-- اختيار التاريخ -->
+    <div class="date-picker-box">
+        <label for="filterDate">اختر تاريخ اليوم لعرض حجوزاته:</label>
+        <input type="date" id="filterDate">
+    </div>
+
+    <div class="container">
+        <table>
+            <thead>
+                <tr>
+                    <th>الساعة</th>
+                    <th>حالة الموعد</th>
+                    <th>اسم الحاجز</th>
+                    <th>رقم الهاتف</th>
+                </tr>
+            </thead>
+            <tbody id="timeTableBody">
+                <tr>
+                    <td colspan="4" style="text-align: center;">الرجاء اختيار التاريخ لعرض المواعيد...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- استدعاء مكتبات فايربيس -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBGM0xBeu0wc2JV_4hgymDMDi1jlltf8SI",
+            authDomain: "marygrgs.firebaseapp.com",
+            projectId: "marygrgs",
+            storageBucket: "marygrgs.firebasestorage.app",
+            messagingSenderId: "866893606556",
+            appId: "1:866893606556:web:d2b7bab1c8dcd8fd038759",
+            measurementId: "G-YRH69L594N"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // الساعات الكاملة من 3 ظهراً إلى 12 منتصف الليل
+        const timeSlots = [
+            "03:00 PM - 04:00 PM",
+            "04:00 PM - 05:00 PM",
+            "05:00 PM - 06:00 PM",
+            "06:00 PM - 07:00 PM",
+            "07:00 PM - 08:00 PM",
+            "08:00 PM - 09:00 PM",
+            "09:00 PM - 10:00 PM",
+            "10:00 PM - 11:00 PM",
+            "11:00 PM - 12:00 AM"
+        ];
+
+        const dateInput = document.getElementById("filterDate");
+        const tableBody = document.getElementById("timeTableBody");
+
+        // تحديد تاريخ اليوم افتراضياً
+        const todayStr = new Date().toISOString().split('T')[0];
+        dateInput.value = todayStr;
+        loadSchedule(todayStr);
+
+        // عند تغيير التاريخ يتم تحديث الجدول مباشرة
+        dateInput.addEventListener("change", (e) => {
+            loadSchedule(e.target.value);
+        });
+
+        async function loadSchedule(selectedDate) {
+            tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center;">جاري تحميل المواعيد...</td></tr>`;
+
+            try {
+                // جلب الحجوزات الخاصة بالتاريخ المحدد فقط
+                const snapshot = await db.collection("bookings")
+                    .where("date", "==", selectedDate)
+                    .get();
+                
+                let reservationsMap = {};
+
+                for (let doc of snapshot.docs) {
+                    const data = doc.data();
+                    const slotTime = data.time ? data.time.trim() : "";
+                    const userId = data.userId;
+
+                    let userName = "مجهول";
+                    let userPhone = "غير متوفر";
+
+                    if (userId) {
+                        const userDoc = await db.collection("users").doc(userId).get();
+                        if (userDoc.exists) {
+                            const userData = userDoc.data();
+                            userName = userData.name || userData.userName || "مجهول";
+                            userPhone = userData.phone || userData.userPhone || "غير متوفر";
+                        }
+                    }
+
+                    reservationsMap[slotTime] = {
+                        name: userName,
+                        phone: userPhone
+                    };
+                }
+
+                tableBody.innerHTML = ""; 
+
+                timeSlots.forEach(slot => {
+                    const row = document.createElement("tr");
+                    
+                    const bookedData = reservationsMap[slot];
+                    let isBooked = bookedData !== undefined;
+                    
+                    let clientName = isBooked ? bookedData.name : "-";
+                    let clientPhone = isBooked ? bookedData.phone : "-";
+                    let statusText = isBooked ? '<span class="status-booked">محجوز</span>' : '<span class="status-available">متاح</span>';
+
+                    row.innerHTML = `
+                        <td><strong>${slot}</strong></td>
+                        <td>${statusText}</td>
+                        <td>${clientName}</td>
+                        <td>${clientPhone}</td>
+                    `;
+
+                    tableBody.appendChild(row);
+                });
+
+            } catch (error) {
+                console.error("خطأ في جلب الجدول: ", error);
+                tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #e74c3c;">حدث خطأ أثناء تحميل جدول المواعيد.</td></tr>`;
+            }
+        }
+    </script>
+</body>
+</html>

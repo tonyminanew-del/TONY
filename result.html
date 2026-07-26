@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نتيجة طلب الحجز</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #2c3e50;
+            color: #fff;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 450px;
+            background: white;
+            color: #333;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-sizing: border-box;
+        }
+        .title {
+            font-size: 22px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 0 0 10px 0;
+        }
+        .status-box {
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .pending { background-color: #f39c12; color: white; }
+        .accepted { background-color: #27ae60; color: white; }
+        .rejected { background-color: #c0392b; color: white; }
+        
+        .details-text {
+            font-size: 15px;
+            color: #555;
+            margin: 5px 0;
+        }
+        .back-btn {
+            background-color: #7f8c8d;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.3s;
+            margin-top: 10px;
+        }
+        .back-btn:hover {
+            background-color: #616a6b;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <p class="title">حالة طلب الحجز الخاص بك</p>
+        
+        <div id="resultContent">
+            <p class="details-text">جاري جلب تفاصيل الحجز من قاعدة البيانات...</p>
+        </div>
+
+        <button type="button" id="backBtn" class="back-btn">العودة للرئيسية</button>
+    </div>
+
+    <!-- استدعاء مكتبات فايربيس -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBGM0xBeu0wc2JV_4hgymDMDi1jlltf8SI",
+            authDomain: "marygrgs.firebaseapp.com",
+            projectId: "marygrgs",
+            storageBucket: "marygrgs.firebasestorage.app",
+            messagingSenderId: "866893606556",
+            appId: "1:866893606556:web:d2b7bab1c8dcd8fd038759",
+            measurementId: "G-YRH69L594N"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            let userId = urlParams.get("id");
+            const resultContent = document.getElementById("resultContent");
+
+            try {
+                if (!userId) {
+                    const latestUser = await db.collection("users")
+                        .limit(1)
+                        .get();
+
+                    if (!latestUser.empty) {
+                        userId = latestUser.docs[0].id;
+                    }
+                }
+
+                if (!userId) {
+                    resultContent.innerHTML = "<p class='details-text' style='color: #c0392b;'>عفواً، لا يوجد مستخدم محدد لعرض حجزه.</p>";
+                    return;
+                }
+
+                // البحث عن الحجز الخاص بهذا المستخدم بدون شرط الترتيب المعقد لتجنب مشاكل الـ Index
+                const bookingSnapshot = await db.collection("bookings")
+                    .where("userId", "==", userId)
+                    .get();
+
+                if (bookingSnapshot.empty) {
+                    resultContent.innerHTML = "<p class='details-text'>لا يوجد لديك أي حجوزات مسجلة حتى الآن.</p>";
+                } else {
+                    // اختيار أحدث حجز برمجياً
+                    let bookings = [];
+                    bookingSnapshot.forEach(doc => {
+                        bookings.push(doc.data());
+                    });
+
+                    const bookingData = bookings[bookings.length - 1];
+                    const status = bookingData.status || "قيد الانتظار";
+                    const bookingDate = bookingData.date || "غير محدد";
+                    const bookingTime = bookingData.time || "غير محدد";
+
+                    let statusClass = "pending";
+                    let statusMsg = "قيد الانتظار (في انتظار مراجعة المسؤول)";
+
+                    if (status === "مقبول") {
+                        statusClass = "accepted";
+                        statusMsg = "تم قبول الحجز بنجاح!";
+                    } else if (status === "مرفوض") {
+                        statusClass = "rejected";
+                        statusMsg = "عفواً، تم رفض طلب الحجز.";
+                    }
+
+                    resultContent.innerHTML = `
+                        <p class="details-text"><strong>تاريخ الحجز:</strong> ${bookingDate}</p>
+                        <p class="details-text"><strong>الوقت:</strong> ${bookingTime}</p>
+                        <div class="status-box ${statusClass}">
+                            ${statusMsg}
+                        </div>
+                    `;
+                }
+
+                // زر العودة يوجه المستخدم لصفحته مع الـ id الخاص به
+                document.getElementById("backBtn").addEventListener("click", () => {
+                    window.location.href = `tony.html?id=${userId}`;
+                });
+
+            } catch (error) {
+                console.error("خطأ في جلب حالة الحجز:", error);
+                resultContent.innerHTML = `<p class='details-text' style='color: #c0392b;'>حدث خطأ أثناء تحميل بيانات الحجز: ${error.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>

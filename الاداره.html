@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة الحجوزات</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #2c3e50;
+            color: #fff;
+            padding: 20px;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin-top: 20px;
+        }
+        .reservation-card {
+            background: white;
+            color: #333;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .reservation-card p {
+            margin: 0;
+            font-size: 16px;
+        }
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .btn-accept {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            flex: 1;
+            font-size: 15px;
+        }
+        .btn-reject {
+            background-color: #c0392b;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            flex: 1;
+            font-size: 15px;
+        }
+        .status {
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .status-pending { background-color: #f39c12; color: white; }
+        .status-accepted { background-color: #27ae60; color: white; }
+        .status-rejected { background-color: #c0392b; color: white; }
+        
+        .back-btn {
+            background-color: #7f8c8d;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+    <button class="back-btn" onclick="window.location.href='admin.html'">العودة لوحة التحكم</button>
+
+    <p class="title" style="font-size: 24px; font-weight: bold; margin-bottom: 20px;">طلبات الحجوزات الواردة</p>
+
+    <div class="container" id="reservationsList">
+        <p style="text-align: center;">جاري تحميل الحجوزات...</p>
+    </div>
+
+    <!-- استدعاء مكتبات فايربيس -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBGM0xBeu0wc2JV_4hgymDMDi1jlltf8SI",
+            authDomain: "marygrgs.firebaseapp.com",
+            projectId: "marygrgs",
+            storageBucket: "marygrgs.firebasestorage.app",
+            messagingSenderId: "866893606556",
+            appId: "1:866893606556:web:d2b7bab1c8dcd8fd038759",
+            measurementId: "G-YRH69L594N"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            const listContainer = document.getElementById("reservationsList");
+
+            try {
+                // جلب البيانات من جدول bookings أو reservations حسب جدولك
+                const snapshot = await db.collection("bookings").orderBy("createdAt", "desc").get();
+
+                if (snapshot.empty) {
+                    listContainer.innerHTML = "<p style='text-align: center;'>لا توجد حجوزات جديدة حالياً.</p>";
+                    return;
+                }
+
+                listContainer.innerHTML = ""; 
+
+                for (let doc of snapshot.docs) {
+                    const data = doc.data();
+                    const docId = doc.id;
+                    const userId = data.userId;
+
+                    let userName = "مستخدم مجهول";
+                    let userPhone = "غير متوفر";
+
+                    if (userId) {
+                        const userDoc = await db.collection("users").doc(userId).get();
+                        if (userDoc.exists) {
+                            const userData = userDoc.data();
+                            userName = userData.name || userData.userName || "مستخدم مجهول";
+                            userPhone = userData.phone || userData.userPhone || "غير متوفر";
+                        }
+                    }
+
+                    const reservationDetails = `التاريخ: ${data.date || "غير محدد"} | الوقت: ${data.time || "غير محدد"}`;
+                    const status = data.status || "قيد الانتظار";
+
+                    const card = document.createElement("div");
+                    card.className = "reservation-card";
+                    
+                    let statusClass = "status-pending";
+                    if (status === "مقبول") statusClass = "status-accepted";
+                    if (status === "مرفوض") statusClass = "status-rejected";
+
+                    card.innerHTML = `
+                        <p><strong>اسم الشخص:</strong> ${userName}</p>
+                        <p><strong>رقم الهاتف:</strong> ${userPhone}</p>
+                        <p><strong>تفاصيل الحجز:</strong> ${reservationDetails}</p>
+                        <p><strong>الحالة:</strong> <span class="status ${statusClass}">${status}</span></p>
+                        <div class="actions">
+                            <button class="btn-accept" onclick="updateStatus('${docId}', 'مقبول')">قبول</button>
+                            <button class="btn-reject" onclick="updateStatus('${docId}', 'مرفوض')">رفض</button>
+                        </div>
+                    `;
+
+                    listContainer.appendChild(card);
+                }
+
+            } catch (error) {
+                console.error("خطأ في جلب الحجوزات: ", error);
+                listContainer.innerHTML = "<p style='text-align: center; color: #e74c3c;'>حدث خطأ أثناء تحميل الحجوزات.</p>";
+            }
+        });
+
+        // دالة لتحديث حالة الحجز في قاعدة البيانات
+        async function updateStatus(docId, newStatus) {
+            try {
+                await db.collection("bookings").doc(docId).update({
+                    status: newStatus
+                });
+                alert(`تم تغيير حالة الحجز إلى: ${newStatus}`);
+                location.reload(); 
+            } catch (error) {
+                console.error("خطأ أثناء تحديث الحالة: ", error);
+                alert("فشل تحديث الحالة، حاول مرة أخرى.");
+            }
+        }
+    </script>
+</body>
+</html>
