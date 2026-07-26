@@ -1,0 +1,87 @@
+/* إعادة تعيين الهوامش الأساسية وتحديد الخط */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* خلفية الصفحة وتوسيط المحتوى */
+body {
+    background-color: #070707d8;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+/* تنسيق عنوان الصفحة الرئيسي */
+.title {
+    font-size: 24px;
+    font-weight: bold;
+    color: #fbff00;
+    margin-bottom: 30px;
+    text-align: center;
+    direction: rtl;
+}
+
+/* تنسيق صندوق الفورم (الاستمارة) */
+form {
+    background-color: #ffffff;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* تنسيق النص التوضيحي فوق الحقل */
+label {
+    font-size: 14px;
+    color: #7f8c8d;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+/* تنسيق حقل الإدخال (Input) */
+input[type="text"] {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+input[type="text"]:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+}
+
+/* تنسيق زر الإرسال (Submit) */
+button {
+    background-color: #27ae60;
+    color: white;
+    border: none;
+    padding: 14px;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    margin-top: 5px;
+}
+
+button:hover {
+    background-color: #219653;
+}
+
+button:active {
+    transform: scale(0.98);
+}
